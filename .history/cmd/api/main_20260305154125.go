@@ -1,0 +1,34 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"golang.org/x/text/cases"
+)
+
+const (
+	AppName = "Vein Framework"
+	Version = "0.1"
+)
+
+type Response struct {
+	Greet string
+}
+
+func main() {
+	fmt.Println(RUN(nil))
+}
+
+
+func RUN(input interface{}) *Response {
+	Response
+	switch v := input.(type){
+		case string:
+
+
+	}
+	return &Response{
+		Greet: strings.ToLower(AppName),
+	}
+}
