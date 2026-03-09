@@ -4,11 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -51,10 +49,10 @@ func main() {
 	if err != nil {
 		fmt.Println("[Main] Error from port conversion", err)
 	}
-	cfg.version = Version
+	cfg.version 
 	flag.IntVar(&cfg.port, "port", port, "This is a port flag. -port:4000")
 	flag.StringVar(&cfg.appName, "appName", os.Getenv("APP_NAME"), "This is the application Name")
-	flag.StringVar(&cfg.env, "env", os.Getenv("MY_ENV"), "This is the working Environment. staging|development|production")
+	flag.StringVar(&cfg.env, "env", os.Getenv("ENV"), "This is the working Environment. staging|development|production")
 
 	//Initialize application struct
 	log := log.New(os.Stdout, "[Vien Framework]", log.Ldate|log.Ltime|log.Lshortfile)
@@ -64,22 +62,8 @@ func main() {
 		log:    log,
 	}
 
-	//Intialize routes
-	srv := &http.Server{
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		Addr:         fmt.Sprintf(":%v", cfg.port),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-	}
+	//Intialize route
 
-	app.log.Println(" ---------------------------------------------------------------")
-	app.log.Printf("  Starting Server on PORT %d and Env as %s", cfg.port, cfg.env)
-	app.log.Println(" ---------------------------------------------------------------")
-	err = srv.ListenAndServe()
-	if err != nil {
-		app.log.Printf("[MAIN|SERVER]%v", err)
-	}
 }
 
 func run(input interface{}) *response {

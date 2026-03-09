@@ -72,10 +72,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-
-	app.log.Println(" ---------------------------------------------------------------")
-	app.log.Printf("  Starting Server on PORT %d and Env as %s", cfg.port, cfg.env)
-	app.log.Println(" ---------------------------------------------------------------")
+    app.log
 	err = srv.ListenAndServe()
 	if err != nil {
 		app.log.Printf("[MAIN|SERVER]%v", err)

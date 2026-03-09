@@ -6,12 +6,12 @@ import (
 )
 
 func TestMain(t *testing.T) {
-  input:= Response{
+  input:= response{
 	Greet: AppName,
   }
   expected := strings.ToLower(input.Greet)
 
-  got:= RUN(AppName).Greet
+  got:= run(AppName).Greet
 
   if expected != got{
    t.Errorf("Expected %s Got %s",expected,got)

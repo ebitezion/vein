@@ -75,7 +75,7 @@ func main() {
 
 	app.log.Println(" ---------------------------------------------------------------")
 	app.log.Printf("  Starting Server on PORT %d and Env as %s", cfg.port, cfg.env)
-	app.log.Println(" ---------------------------------------------------------------")
+	app.log.Println(" ---------------------------------------")
 	err = srv.ListenAndServe()
 	if err != nil {
 		app.log.Printf("[MAIN|SERVER]%v", err)
