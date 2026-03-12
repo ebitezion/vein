@@ -15,3 +15,6 @@ tidy:
 
 clean:
 	rm -rf bin
+
+migrate:
+	migrate create -seq -ext=.sql -dir=./migrations $(name)
