@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ebitezion/vein/internal/data"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -29,6 +30,7 @@ type response struct {
 type application struct {
 	config config
 	log    *log.Logger
+	model  data.Models
 }
 
 // config type allows for system configuration
@@ -88,6 +90,7 @@ func main() {
 	app := application{
 		config: cfg,
 		log:    log,
+		model:  data.NewModels(db),
 	}
 
 	//Intialize routes
