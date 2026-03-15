@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/ebitezion/vein/internal/validator"
@@ -55,4 +56,71 @@ func ValidateUsers(v *validator.Validator, user *User) {
 	// Status validation
 	v.Check(user.Status != "", "status", "must be provided")
 	v.Check(validator.In(user.Status, "active", "disabled", "suspended"), "status", "must be a valid status")
+}
+
+func (u UserModel) Insert(user User) error {
+	stmt := `INSERT INTO users(first_name, last_name, email, phone, password_hash, role, status, email_verified)
+			 VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+			 RETURNING id, created_at
+	`
+	args := []interface{}{
+		user.FirstName,
+		user.LastName,
+		user.Email,
+		user.Phone,
+		user.PasswordHash,
+		user.Role,
+		user.Status,
+		user.EmailVerified,
+	}
+
+	return u.DB.QueryRow(stmt, args...).Scan(&user.ID, &user.CreatedAt)
+}
+
+func (u UserModel) Get(id int64) (*User, error) {
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	stmt := `SELECT id, first_name, last_name, email, phone, role, status, email_verified, created_at 
+			 FROM users
+			 WHERE id = $1
+	`
+
+	var user User
+
+	err := u.DB.QueryRow(stmt, id).Scan(
+		&user.ID, &user.FirstName, &user.LastName, &user.Email, &user.Phone, &user.Role, &user.Status, &user.EmailVerified, &user.CreatedAt,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrRecordNotFound):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, ErrRecordNotFound
+		}
+
+	}
+
+	return nil, err
+}
+
+func (u UserModel) update(user User, id int64) error {
+	stmt := `UPDATE users
+			SET first_name = $1, last_name = $2, email = $3, phone = $4, password_hash = $4, role = $5, status = $6, email_verified = $7 
+			WHERE id = $8
+			RETURNING id
+	     `
+	args := []interface{}{
+		user.FirstName,
+		user.LastName,
+		user.Email,
+		user.Phone,
+		user.PasswordHash,
+		user.Role,
+		user.Status,
+		user.EmailVerified,
+		id,
+	}
+	return u.DB.QueryRow(stmt, args...).Scan(&user.ID)
 }
