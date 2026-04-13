@@ -1,6 +1,6 @@
 # vein-backend-framework
 
-Production-ready Go backend framework skeleton with secure defaults, observability, versioned APIs, extensibility primitives, and CI quality gates.
+Go backend framework skeleton with secure defaults, observability, versioned APIs, extensibility primitives, and CI quality gates.
 
 Begin here if you are new: [Beginner Tutorial](docs/BEGINNER_TUTORIAL.md)
 
@@ -31,7 +31,6 @@ Begin here if you are new: [Beginner Tutorial](docs/BEGINNER_TUTORIAL.md)
 - CI/CD quality gates: format check, vet, lint, migration safety checks, security scan, vulnerability scan, integration tests
 
 ## Framework Completeness
-Current completion: **about 95%** toward a production-standard backend framework (excluding Swagger/OpenAPI by your request).
 
 Implemented:
 - Scaffolding CLI and generators
