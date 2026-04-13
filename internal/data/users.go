@@ -1,8 +1,10 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ebitezion/vein/internal/validator"
@@ -25,6 +27,8 @@ type User struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
+
+const dbTimeout = 3 * time.Second
 
 func ValidateUsers(v *validator.Validator, user *User) {
 
@@ -59,6 +63,9 @@ func ValidateUsers(v *validator.Validator, user *User) {
 }
 
 func (u UserModel) Insert(user User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
 	stmt := `INSERT INTO users(first_name, last_name, email, phone, password_hash, role, status, email_verified)
 			 VALUES($1,$2,$3,$4,$5,$6,$7,$8)
 			 RETURNING id, created_at
@@ -74,10 +81,13 @@ func (u UserModel) Insert(user User) error {
 		user.EmailVerified,
 	}
 
-	return u.DB.QueryRow(stmt, args...).Scan(&user.ID, &user.CreatedAt)
+	return u.DB.QueryRowContext(ctx, stmt, args...).Scan(&user.ID, &user.CreatedAt)
 }
 
 func (u UserModel) Get(id int64) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -88,27 +98,30 @@ func (u UserModel) Get(id int64) (*User, error) {
 
 	var user User
 
-	err := u.DB.QueryRow(stmt, id).Scan(
+	err := u.DB.QueryRowContext(ctx, stmt, id).Scan(
 		&user.ID, &user.FirstName, &user.LastName, &user.Email, &user.Phone, &user.Role, &user.Status, &user.EmailVerified, &user.CreatedAt,
 	)
 
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrRecordNotFound):
+		case errors.Is(err, sql.ErrNoRows):
 			return nil, ErrRecordNotFound
 		default:
-			return nil, ErrRecordNotFound
+			return nil, err
 		}
 
 	}
 
-	return nil, err
+	return &user, nil
 }
 
-func (u UserModel) update(user User, id int64) error {
+func (u UserModel) Update(user User, id int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
 	stmt := `UPDATE users
-			SET first_name = $1, last_name = $2, email = $3, phone = $4, password_hash = $4, role = $5, status = $6, email_verified = $7 
-			WHERE id = $8
+			SET first_name = $1, last_name = $2, email = $3, phone = $4, password_hash = $5, role = $6, status = $7, email_verified = $8 
+			WHERE id = $9
 			RETURNING id
 	     `
 	args := []interface{}{
@@ -122,5 +135,54 @@ func (u UserModel) update(user User, id int64) error {
 		user.EmailVerified,
 		id,
 	}
-	return u.DB.QueryRow(stmt, args...).Scan(&user.ID)
+	return u.DB.QueryRowContext(ctx, stmt, args...).Scan(&user.ID)
+}
+
+func (u UserModel) List(filters Filters) ([]User, Metadata, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	query := fmt.Sprintf(`SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+		FROM users
+		ORDER BY %s %s, id ASC
+		LIMIT $1 OFFSET $2`, filters.sortColumn(), filters.sortDirection())
+
+	args := []interface{}{filters.PageSize, (filters.Page - 1) * filters.PageSize}
+
+	rows, err := u.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	defer rows.Close()
+
+	totalRecords := 0
+	users := []User{}
+
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(
+			&totalRecords,
+			&user.ID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Email,
+			&user.Phone,
+			&user.Role,
+			&user.Status,
+			&user.EmailVerified,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		); err != nil {
+			return nil, Metadata{}, err
+		}
+
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := CalculateMetadata(totalRecords, filters.Page, filters.PageSize)
+	return users, metadata, nil
 }

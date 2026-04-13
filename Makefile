@@ -8,11 +8,38 @@ CMD_PATH=./cmd/api
 run:
 	go run $(CMD_PATH)
 
+seed:
+	go run ./cmd/seed
+
 build:
 	go build -o bin/$(APP_NAME) $(CMD_PATH)
 
+build-cli:
+	go build -o bin/veincli ./cmd/veincli
+
 test:
 	go test ./...
+
+test-integration:
+	INTEGRATION_TEST_DSN="$(DB_DSN)" go test ./... -run TestE2E -v
+
+fmt-check:
+	./scripts/check_fmt.sh
+
+migration-check:
+	./scripts/check_migrations.sh
+
+vet:
+	go vet ./...
+
+lint:
+	golangci-lint run
+
+security-check:
+	gosec ./...
+
+vuln-check:
+	govulncheck ./...
 
 tidy:
 	go mod tidy

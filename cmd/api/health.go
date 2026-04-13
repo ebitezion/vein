@@ -1,6 +1,10 @@
 package main
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+	"time"
+)
 
 func (app *application) healthcheck(w http.ResponseWriter, r *http.Request) {
 
@@ -15,5 +19,30 @@ func (app *application) healthcheck(w http.ResponseWriter, r *http.Request) {
 		"healthcheck": input,
 	}
 
-	app.writeJSON(w, http.StatusOK, data, nil)
+	_ = app.writeJSON(w, http.StatusOK, data, nil)
+}
+
+func (app *application) liveness(w http.ResponseWriter, r *http.Request) {
+	_ = app.writeJSON(w, http.StatusOK, envelope{
+		"liveness": envelope{
+			"status":    "alive",
+			"startedAt": app.startTime.Format(time.RFC3339),
+		},
+	}, nil)
+}
+
+func (app *application) readiness(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := app.model.Users.DB.PingContext(ctx); err != nil {
+		app.errorResponse(w, r, http.StatusServiceUnavailable, "database not ready")
+		return
+	}
+
+	_ = app.writeJSON(w, http.StatusOK, envelope{
+		"readiness": envelope{
+			"status": "ready",
+		},
+	}, nil)
 }

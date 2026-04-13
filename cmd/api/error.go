@@ -9,7 +9,11 @@ func (app *application) logError(r *http.Request, err error, nameofFunction stri
 
 // errorResponse generic error for wrappers
 func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{}) {
-	data := envelope{"Error": message}
+	data := envelope{"error": envelope{
+		"type":       http.StatusText(status),
+		"message":    message,
+		"request_id": app.requestIDFromContext(r.Context()),
+	}}
 	err := app.writeJSON(w, status, data, nil)
 	if err != nil {
 		app.logError(r, err, "")
@@ -24,7 +28,6 @@ func (app *application) notFoundErrorResponse(w http.ResponseWriter, r *http.Req
 	app.errorResponse(w, r, http.StatusNotFound, message)
 }
 
-
 // serverErrorResponse wrapper/handler
 func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request) {
 	message := "Server Error"
@@ -37,4 +40,14 @@ func (app *application) methodNotAllowedErrorResponse(w http.ResponseWriter, r *
 	app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
 }
 
+func (app *application) unauthorizedResponse(w http.ResponseWriter, r *http.Request) {
+	app.errorResponse(w, r, http.StatusUnauthorized, "Unauthorized")
+}
 
+func (app *application) forbiddenResponse(w http.ResponseWriter, r *http.Request) {
+	app.errorResponse(w, r, http.StatusForbidden, "Forbidden")
+}
+
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
+	app.errorResponse(w, r, http.StatusTooManyRequests, "Rate limit exceeded")
+}

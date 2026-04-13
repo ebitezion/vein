@@ -8,14 +8,29 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // helper to build a minimal application instance for handler/helper tests.
 func newTestApp() *application {
-	return &application{
+	app := &application{
 		config: config{appName: "vein", version: "1.0.0", env: "test"},
 		log:    logDiscard,
 	}
+	app.config.security.tokenSecret = "test-secret"
+	app.config.security.tokenIssuer = "vein"
+	app.config.security.tokenAudience = "vein-clients"
+	app.config.security.tokenTTL = time.Hour
+	app.metrics = newMetricsStore()
+	app.rateLimiter = newMemoryRateLimiter()
+	app.idemStore = newMemoryIdempotencyStore()
+	app.cache = newMemoryCache()
+	app.queue = newMemoryQueue(10)
+	app.lifecycle = newLifecycle()
+	app.plugins = newPluginRegistry()
+	app.events = newEventBus()
+	app.tracer = nil
+	return app
 }
 
 // discard logger reused across tests.
