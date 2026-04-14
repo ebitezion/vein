@@ -83,6 +83,7 @@ func TestE2EUsersListAndMiddleware(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodPost, server.URL+"/v1/jobs/audit", bytes.NewReader(idempotencyReqBody))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", "idem-123")
+		req.Header.Set("Authorization", "Bearer "+token)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("idempotency request failed: %v", err)
@@ -114,12 +115,18 @@ func issueAuthToken(t *testing.T, serverURL string) string {
 		t.Fatalf("expected 201 token response, got %d body=%s", res.StatusCode, string(body))
 	}
 
-	var envelope map[string]map[string]string
+	var envelope struct {
+		Auth struct {
+			Token     string `json:"token"`
+			ExpiresIn int    `json:"expires_in"`
+			Role      string `json:"role"`
+		} `json:"auth"`
+	}
 	if err := json.NewDecoder(res.Body).Decode(&envelope); err != nil {
 		t.Fatalf("decode token response: %v", err)
 	}
 
-	token := envelope["auth"]["token"]
+	token := envelope.Auth.Token
 	if token == "" {
 		t.Fatal("expected auth token")
 	}
