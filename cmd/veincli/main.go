@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var safeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -49,8 +52,8 @@ func usage() {
 }
 
 func createApp(name string) error {
-	root := filepath.Clean(name)
-	if root == "." || root == "" {
+	root, err := sanitizeRelativePath(name)
+	if err != nil {
 		return fmt.Errorf("invalid app name")
 	}
 
@@ -61,7 +64,8 @@ func createApp(name string) error {
 		filepath.Join(root, "migrations"),
 	}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// #nosec G703 -- `dir` is built from sanitized relative `root`.
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
 	}
@@ -71,14 +75,15 @@ func createApp(name string) error {
 		"APP_VERSION=1.0.0",
 		"PORT=4000",
 		"MY_ENV=development",
-		"DB_DSN=postgres://postgres:postgres@localhost:5432/" + name + "?sslmode=disable",
+		"DB_DSN=postgres://postgres:postgres@localhost:5432/" + root + "?sslmode=disable",
 		"TOKEN_SECRET=change-me",
 		"CORS_TRUSTED_ORIGINS=http://localhost:3000",
 		"RATE_LIMIT_RPS=5",
 		"RATE_LIMIT_BURST=10",
 	}, "\n") + "\n"
 
-	return os.WriteFile(filepath.Join(root, ".env.example"), []byte(env), 0o644)
+	// #nosec G703 -- destination path is constrained to sanitized relative `root`.
+	return os.WriteFile(filepath.Join(root, ".env.example"), []byte(env), 0o600)
 }
 
 func generate(kind, name string) error {
@@ -88,6 +93,10 @@ func generate(kind, name string) error {
 
 	safeName := strings.ToLower(strings.TrimSpace(name))
 	safeName = strings.ReplaceAll(safeName, " ", "_")
+	safeName, err := sanitizeName(safeName)
+	if err != nil {
+		return err
+	}
 
 	switch kind {
 	case "module":
@@ -104,11 +113,43 @@ func generate(kind, name string) error {
 }
 
 func writeIfMissing(path, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	cleanPath, err := sanitizeRelativePath(path)
+	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("file already exists: %s", path)
+
+	// #nosec G703 -- `cleanPath` is validated by sanitizeRelativePath.
+	if err := os.MkdirAll(filepath.Dir(cleanPath), 0o750); err != nil {
+		return err
 	}
-	return os.WriteFile(path, []byte(content), 0o644)
+	// #nosec G703 -- `cleanPath` is validated by sanitizeRelativePath.
+	if _, err := os.Stat(cleanPath); err == nil {
+		return fmt.Errorf("file already exists: %s", cleanPath)
+	}
+	// #nosec G703 -- `cleanPath` is validated by sanitizeRelativePath.
+	return os.WriteFile(cleanPath, []byte(content), 0o600)
+}
+
+func sanitizeName(value string) (string, error) {
+	clean := strings.TrimSpace(value)
+	if clean == "" || !safeNamePattern.MatchString(clean) {
+		return "", fmt.Errorf("name can only contain letters, digits, underscore, and hyphen")
+	}
+	return clean, nil
+}
+
+func sanitizeRelativePath(path string) (string, error) {
+	clean := filepath.Clean(strings.TrimSpace(path))
+	if clean == "" || clean == "." || clean == ".." || filepath.IsAbs(clean) || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path must be a safe relative path")
+	}
+
+	parts := strings.Split(clean, string(filepath.Separator))
+	for _, part := range parts {
+		if part == ".." {
+			return "", fmt.Errorf("path traversal is not allowed")
+		}
+	}
+
+	return clean, nil
 }

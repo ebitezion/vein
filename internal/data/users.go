@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -182,10 +181,10 @@ func (u UserModel) List(filters Filters) ([]User, Metadata, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := fmt.Sprintf(`SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
-		FROM users
-		ORDER BY %s %s, id ASC
-		LIMIT $1 OFFSET $2`, filters.sortColumn(), filters.sortDirection())
+	query, err := userListQueryForSort(filters.Sort)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
 
 	args := []interface{}{filters.PageSize, (filters.Page - 1) * filters.PageSize}
 
@@ -225,4 +224,41 @@ func (u UserModel) List(filters Filters) ([]User, Metadata, error) {
 
 	metadata := CalculateMetadata(totalRecords, filters.Page, filters.PageSize)
 	return users, metadata, nil
+}
+
+func userListQueryForSort(sort string) (string, error) {
+	switch sort {
+	case "created_at":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY created_at ASC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	case "-created_at":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY created_at DESC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	case "email":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY email ASC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	case "-email":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY email DESC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	case "first_name":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY first_name ASC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	case "-first_name":
+		return `SELECT count(*) OVER(), id, first_name, last_name, email, phone, role, status, email_verified, created_at, updated_at
+			FROM users
+			ORDER BY first_name DESC, id ASC
+			LIMIT $1 OFFSET $2`, nil
+	default:
+		return "", ErrRecordNotFound
+	}
 }

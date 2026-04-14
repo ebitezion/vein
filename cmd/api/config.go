@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -243,7 +245,7 @@ func parseCSV(raw string) []string {
 func getSecretEnv(key, fallback string) string {
 	filePath := strings.TrimSpace(os.Getenv(key + "_FILE"))
 	if filePath != "" {
-		value, err := os.ReadFile(filePath)
+		value, err := readSecretFile(filePath)
 		if err == nil {
 			secret := strings.TrimSpace(string(value))
 			if secret != "" {
@@ -313,4 +315,31 @@ func isStrongSecret(secret string) bool {
 	}
 
 	return classes >= 3
+}
+
+func readSecretFile(path string) ([]byte, error) {
+	clean := filepath.Clean(strings.TrimSpace(path))
+	if clean == "" {
+		return nil, fmt.Errorf("empty secret file path")
+	}
+
+	dir := filepath.Dir(clean)
+	base := filepath.Base(clean)
+	if base == "." || base == string(filepath.Separator) {
+		return nil, fmt.Errorf("invalid secret file path")
+	}
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+
+	file, err := root.Open(base)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return io.ReadAll(file)
 }

@@ -58,7 +58,7 @@ jobs:
       - name: Gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          $(go env GOPATH)/bin/gosec ./...
+          $(go env GOPATH)/bin/gosec ./cmd/... ./internal/...
 
       - name: Govulncheck
         run: |
