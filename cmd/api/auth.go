@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthClaims struct {
@@ -59,6 +60,15 @@ func (app *application) parseToken(tokenString string) (AuthClaims, error) {
 		Role:    claims.Role,
 		Expiry:  claims.ExpiresAt.Time,
 	}, nil
+}
+
+func verifyPasswordHash(plainPassword, passwordHash string) bool {
+	if plainPassword == "" || passwordHash == "" {
+		return false
+	}
+
+	err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(plainPassword))
+	return err == nil
 }
 
 func (app *application) authenticate(next http.Handler) http.Handler {

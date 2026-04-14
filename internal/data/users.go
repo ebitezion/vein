@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ebitezion/vein/internal/validator"
@@ -136,6 +137,45 @@ func (u UserModel) Update(user User, id int64) error {
 		id,
 	}
 	return u.DB.QueryRowContext(ctx, stmt, args...).Scan(&user.ID)
+}
+
+func (u UserModel) GetByEmail(email string) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return nil, ErrRecordNotFound
+	}
+
+	stmt := `SELECT id, first_name, last_name, email, phone, password_hash, role, status, email_verified, created_at, updated_at
+		FROM users
+		WHERE lower(email) = $1`
+
+	var user User
+	err := u.DB.QueryRowContext(ctx, stmt, email).Scan(
+		&user.ID,
+		&user.FirstName,
+		&user.LastName,
+		&user.Email,
+		&user.Phone,
+		&user.PasswordHash,
+		&user.Role,
+		&user.Status,
+		&user.EmailVerified,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
 }
 
 func (u UserModel) List(filters Filters) ([]User, Metadata, error) {

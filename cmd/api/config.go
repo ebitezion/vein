@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // config type allows for system configuration
@@ -25,10 +27,13 @@ type config struct {
 		corsTrustedOrigins []string
 		rateLimitRPS       float64
 		rateLimitBurst     int
+		authRateLimitRPS   float64
+		authRateLimitBurst int
 		tokenSecret        string
 		tokenIssuer        string
 		tokenAudience      string
 		tokenTTL           time.Duration
+		trustedProxies     []*net.IPNet
 	}
 	redis struct {
 		addr     string
@@ -65,10 +70,13 @@ func loadConfig() (config, error) {
 	cfg.security.corsTrustedOrigins = parseCSV(getEnv("CORS_TRUSTED_ORIGINS", "http://localhost:3000,http://localhost:5173"))
 	cfg.security.rateLimitRPS = getEnvFloat("RATE_LIMIT_RPS", 5)
 	cfg.security.rateLimitBurst = getEnvInt("RATE_LIMIT_BURST", 10)
+	cfg.security.authRateLimitRPS = getEnvFloat("AUTH_RATE_LIMIT_RPS", 1)
+	cfg.security.authRateLimitBurst = getEnvInt("AUTH_RATE_LIMIT_BURST", 3)
 	cfg.security.tokenSecret = getSecretEnv("TOKEN_SECRET", "replace-me-in-production")
 	cfg.security.tokenIssuer = getEnv("TOKEN_ISSUER", cfg.appName)
 	cfg.security.tokenAudience = getEnv("TOKEN_AUDIENCE", "vein-clients")
 	cfg.security.tokenTTL = getEnvDuration("TOKEN_TTL", 24*time.Hour)
+	cfg.security.trustedProxies = parseTrustedProxies(getEnv("TRUSTED_PROXIES", ""))
 
 	cfg.redis.addr = getEnv("REDIS_ADDR", "")
 	cfg.redis.password = getSecretEnv("REDIS_PASSWORD", "")
@@ -121,15 +129,27 @@ func validateConfig(cfg config) error {
 	if cfg.security.rateLimitBurst < 1 {
 		errs = append(errs, "RATE_LIMIT_BURST must be greater than 0")
 	}
+	if cfg.security.authRateLimitRPS <= 0 {
+		errs = append(errs, "AUTH_RATE_LIMIT_RPS must be greater than 0")
+	}
+	if cfg.security.authRateLimitBurst < 1 {
+		errs = append(errs, "AUTH_RATE_LIMIT_BURST must be greater than 0")
+	}
 
 	if cfg.security.tokenSecret == "" {
 		errs = append(errs, "TOKEN_SECRET must be provided")
 	}
-	if cfg.env == "production" && cfg.security.tokenSecret == "replace-me-in-production" {
-		errs = append(errs, "TOKEN_SECRET must be changed in production")
+	if cfg.env != "test" && cfg.security.tokenSecret == "replace-me-in-production" {
+		errs = append(errs, "TOKEN_SECRET must be changed")
 	}
-	if cfg.security.tokenTTL <= 0 {
-		errs = append(errs, "TOKEN_TTL must be greater than zero")
+	if cfg.env != "test" && !isStrongSecret(cfg.security.tokenSecret) {
+		errs = append(errs, "TOKEN_SECRET is too weak; use at least 32 chars with mixed character classes")
+	}
+	if cfg.security.tokenTTL < 5*time.Minute {
+		errs = append(errs, "TOKEN_TTL must be at least 5m")
+	}
+	if cfg.security.tokenTTL > 24*time.Hour {
+		errs = append(errs, "TOKEN_TTL must be at most 24h")
 	}
 	if cfg.tracing.sampleRatio < 0 || cfg.tracing.sampleRatio > 1 {
 		errs = append(errs, "OTEL_SAMPLE_RATIO must be between 0 and 1")
@@ -233,4 +253,64 @@ func getSecretEnv(key, fallback string) string {
 	}
 
 	return getEnv(key, fallback)
+}
+
+func parseTrustedProxies(raw string) []*net.IPNet {
+	items := parseCSV(raw)
+	trusted := make([]*net.IPNet, 0, len(items))
+	for _, item := range items {
+		if ip := net.ParseIP(item); ip != nil {
+			bits := 128
+			if ip.To4() != nil {
+				bits = 32
+			}
+			trusted = append(trusted, &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(bits, bits),
+			})
+			continue
+		}
+
+		_, network, err := net.ParseCIDR(item)
+		if err == nil {
+			trusted = append(trusted, network)
+		}
+	}
+	return trusted
+}
+
+func isStrongSecret(secret string) bool {
+	if len(secret) < 32 {
+		return false
+	}
+
+	var hasUpper, hasLower, hasDigit, hasSymbol bool
+	for _, r := range secret {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		default:
+			hasSymbol = true
+		}
+	}
+
+	classes := 0
+	if hasUpper {
+		classes++
+	}
+	if hasLower {
+		classes++
+	}
+	if hasDigit {
+		classes++
+	}
+	if hasSymbol {
+		classes++
+	}
+
+	return classes >= 3
 }

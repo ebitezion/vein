@@ -101,7 +101,7 @@ func TestE2EUsersListAndMiddleware(t *testing.T) {
 func issueAuthToken(t *testing.T, serverURL string) string {
 	t.Helper()
 
-	payload := map[string]string{"subject": "integration-user", "role": "admin"}
+	payload := map[string]string{"email": "admin@vein.dev", "password": "VeinPass#2026!"}
 	raw, _ := json.Marshal(payload)
 	res, err := http.Post(serverURL+"/v1/auth/token", "application/json", bytes.NewReader(raw))
 	if err != nil {

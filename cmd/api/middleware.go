@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -126,8 +127,16 @@ func (app *application) isTrustedOrigin(origin string) bool {
 
 func (app *application) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := readClientIP(r)
-		allowed, err := app.rateLimiter.Allow(r.Context(), ip, app.config.security.rateLimitRPS, app.config.security.rateLimitBurst)
+		ip := app.readClientIP(r)
+
+		rps := app.config.security.rateLimitRPS
+		burst := app.config.security.rateLimitBurst
+		if r.URL.Path == "/v1/auth/token" {
+			rps = app.config.security.authRateLimitRPS
+			burst = app.config.security.authRateLimitBurst
+		}
+
+		allowed, err := app.rateLimiter.Allow(r.Context(), ip, rps, burst)
 		if err != nil {
 			app.serverErrorResponse(w, r)
 			return
@@ -195,19 +204,54 @@ func (app *application) requestIDFromContext(ctx context.Context) string {
 	return requestID
 }
 
-func readClientIP(r *http.Request) string {
+func (app *application) readClientIP(r *http.Request) string {
+	remoteIP := parseRemoteIP(r.RemoteAddr)
+	if remoteIP == "" {
+		return r.RemoteAddr
+	}
+
+	if !app.isFromTrustedProxy(remoteIP) {
+		return remoteIP
+	}
+
 	forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
 	if forwarded != "" {
 		parts := strings.Split(forwarded, ",")
 		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
+			candidate := strings.TrimSpace(parts[0])
+			if net.ParseIP(candidate) != nil {
+				return candidate
+			}
 		}
 	}
 
-	ip := strings.TrimSpace(r.Header.Get("X-Real-IP"))
-	if ip != "" {
-		return ip
+	realIP := strings.TrimSpace(r.Header.Get("X-Real-IP"))
+	if net.ParseIP(realIP) != nil {
+		return realIP
 	}
 
-	return r.RemoteAddr
+	return remoteIP
+}
+
+func parseRemoteIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return strings.TrimSpace(remoteAddr)
+	}
+	return strings.TrimSpace(host)
+}
+
+func (app *application) isFromTrustedProxy(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+
+	for _, network := range app.config.security.trustedProxies {
+		if network.Contains(parsed) {
+			return true
+		}
+	}
+
+	return false
 }

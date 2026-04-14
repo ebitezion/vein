@@ -3,6 +3,7 @@
 Go backend framework skeleton with secure defaults, observability, versioned APIs, extensibility primitives, and CI quality gates.
 
 Begin here if you are new: [Beginner Tutorial](docs/BEGINNER_TUTORIAL.md)
+Build a full feature end-to-end: [Build First Feature](docs/BUILD_FIRST_FEATURE.md)
 
 ## Tech Stack
 - Go 1.25
@@ -56,9 +57,9 @@ Still needed for full enterprise-grade readiness:
 - `GET /liveness`
 - `GET /readiness`
 - `GET /metrics`
-- `POST /v1/auth/token`
+- `POST /v1/auth/token` (credential-based: `email` + `password`)
 - `GET /v1/users` (requires bearer token and role `admin|manager`)
-- `POST /v1/jobs/audit`
+- `POST /v1/jobs/audit` (requires bearer token and role `admin|manager`)
 
 ## Configuration
 Copy `.env.example` and set required values:
@@ -67,6 +68,7 @@ Copy `.env.example` and set required values:
 - `TOKEN_SECRET` (or `TOKEN_SECRET_FILE`), `TOKEN_ISSUER`, `TOKEN_AUDIENCE`, `TOKEN_TTL`
 - `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_MAX_IDLE_TIME`
 - `CORS_TRUSTED_ORIGINS`, `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`
+- `AUTH_RATE_LIMIT_RPS`, `AUTH_RATE_LIMIT_BURST`, optional `TRUSTED_PROXIES`
 - Optional Redis: `REDIS_ADDR`, `REDIS_PASSWORD` (or `REDIS_PASSWORD_FILE`), `REDIS_DB`, `REDIS_QUEUE_KEY`
 - Optional tracing: `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SAMPLE_RATIO`
 - Integration test DSN for e2e locally/CI: `INTEGRATION_TEST_DSN`

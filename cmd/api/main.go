@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -199,17 +198,4 @@ func openDB(cfg config) (*sql.DB, error) {
 	}
 
 	return db, nil
-}
-
-func run(input interface{}) *response {
-	response := &response{}
-	switch v := input.(type) {
-	case string:
-		response.Greet = strings.ToLower(v)
-	case nil:
-		response.Greet = strings.ToLower(AppName)
-	default:
-		response.Greet = "unknown input type"
-	}
-	return response
 }

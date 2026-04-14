@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/ebitezion/vein/internal/data"
 	"github.com/ebitezion/vein/internal/validator"
@@ -9,8 +10,8 @@ import (
 
 func (app *application) issueToken(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Subject string `json:"subject"`
-		Role    string `json:"role"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	if err := app.readJSON(w, r, &input); err != nil {
@@ -19,19 +20,35 @@ func (app *application) issueToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	v.Check(input.Subject != "", "subject", "must be provided")
-	v.Check(validator.In(input.Role, "user", "manager", "admin"), "role", "must be a valid role")
+	v.Check(input.Email != "", "email", "must be provided")
+	v.Check(validator.Matches(input.Email, validator.EmailRX), "email", "must be a valid email address")
+	v.Check(input.Password != "", "password", "must be provided")
 	if !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	token, err := app.generateToken(input.Subject, input.Role, app.config.security.tokenTTL)
+	user, err := app.model.Users.GetByEmail(strings.ToLower(input.Email))
+	if err != nil || !verifyPasswordHash(input.Password, user.PasswordHash) {
+		app.unauthorizedResponse(w, r)
+		return
+	}
+
+	if user.Status != "active" {
+		app.forbiddenResponse(w, r)
+		return
+	}
+
+	token, err := app.generateToken(user.ID, user.Role, app.config.security.tokenTTL)
 	if err != nil {
 		app.serverErrorResponse(w, r)
 		return
 	}
-	_ = app.writeJSON(w, http.StatusCreated, envelope{"auth": envelope{"token": token}}, nil)
+	_ = app.writeJSON(w, http.StatusCreated, envelope{"auth": envelope{
+		"token":      token,
+		"expires_in": int(app.config.security.tokenTTL.Seconds()),
+		"role":       user.Role,
+	}}, nil)
 }
 
 func (app *application) listUsers(w http.ResponseWriter, r *http.Request) {

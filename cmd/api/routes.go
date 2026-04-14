@@ -23,7 +23,7 @@ func (app *application) routes() http.Handler {
 
 	routes.HandlerFunc(http.MethodPost, "/v1/auth/token", app.issueToken)
 	routes.Handler(http.MethodGet, "/v1/users", app.authenticate(app.requireRoles("admin", "manager")(http.HandlerFunc(app.listUsers))))
-	routes.HandlerFunc(http.MethodPost, "/v1/jobs/audit", app.enqueueAuditJob)
+	routes.Handler(http.MethodPost, "/v1/jobs/audit", app.authenticate(app.requireRoles("admin", "manager")(http.HandlerFunc(app.enqueueAuditJob))))
 
 	return app.chain(routes)
 }
