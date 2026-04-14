@@ -39,7 +39,11 @@ func newRedisIdempotencyStore(client *redis.Client) *redisIdempotencyStore {
 }
 
 func (r *redisIdempotencyStore) Reserve(ctx context.Context, key string, ttl time.Duration) (bool, error) {
-	return r.client.SetNX(ctx, "idempotency:"+key, "1", ttl).Result()
+	result, err := r.client.SetArgs(ctx, "idempotency:"+key, "1", redis.SetArgs{
+		Mode: "NX",
+		TTL:  ttl,
+	}).Result()
+	return result == "OK", err
 }
 
 type redisRateLimiter struct {

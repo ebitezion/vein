@@ -18,15 +18,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var (
-	AppName = os.Getenv("APP_NAME")
-	Version = os.Getenv("APP_VERSION")
-)
-
-type response struct {
-	Greet string
-}
-
 // application type allows for application dependency injection
 type application struct {
 	config        config

@@ -8,21 +8,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/ebitezion/vein/internal/validator"
-	"github.com/julienschmidt/httprouter"
 )
 
 // envelope JSON responses behind a wrapper
 type envelope map[string]interface{}
-
-// Read ID param
-func readIDParam(r *http.Request) string {
-	//get the request context
-	params := httprouter.ParamsFromContext(r.Context())
-	return params.ByName("ID")
-}
 
 // writeJSON writes a formats our response to a json
 func (app *application) writeJSON(w http.ResponseWriter, status int, data envelope, headers http.Header) error {
@@ -105,15 +96,6 @@ func (app *application) readString(qs url.Values, key string, defaultValue strin
 		return defaultValue
 	}
 	return s
-}
-
-// readCSV returns a comma-separated query-string value as a slice.
-func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
-	csv := qs.Get(key)
-	if csv == "" {
-		return defaultValue
-	}
-	return strings.Split(csv, ",")
 }
 
 // readInt returns an int query-string value and records validation errors.
