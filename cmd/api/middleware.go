@@ -128,15 +128,17 @@ func (app *application) isTrustedOrigin(origin string) bool {
 func (app *application) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := app.readClientIP(r)
+		limiterKey := "general:" + ip
 
 		rps := app.config.security.rateLimitRPS
 		burst := app.config.security.rateLimitBurst
 		if r.URL.Path == "/v1/auth/token" {
 			rps = app.config.security.authRateLimitRPS
 			burst = app.config.security.authRateLimitBurst
+			limiterKey = "auth:" + ip
 		}
 
-		allowed, err := app.rateLimiter.Allow(r.Context(), ip, rps, burst)
+		allowed, err := app.rateLimiter.Allow(r.Context(), limiterKey, rps, burst)
 		if err != nil {
 			app.serverErrorResponse(w, r)
 			return
