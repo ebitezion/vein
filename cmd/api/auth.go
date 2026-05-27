@@ -92,6 +92,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), userRoleContextKey, claims.Role)
+		ctx = context.WithValue(ctx, userIDContextKey, claims.Subject)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

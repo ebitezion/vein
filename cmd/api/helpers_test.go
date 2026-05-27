@@ -26,6 +26,7 @@ func newTestApp() *application {
 	app.idemStore = newMemoryIdempotencyStore()
 	app.cache = newMemoryCache()
 	app.queue = newMemoryQueue(10)
+	app.estateRoles = newMemoryEstateRoleStore()
 	app.lifecycle = newLifecycle()
 	app.plugins = newPluginRegistry()
 	app.events = newEventBus()

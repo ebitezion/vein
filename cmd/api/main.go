@@ -24,11 +24,13 @@ type application struct {
 	log           *log.Logger
 	model         data.Models
 	startTime     time.Time
+	dbEnabled     bool
 	metrics       *metricsStore
 	rateLimiter   RateLimiter
 	idemStore     IdempotencyStore
 	cache         Cache
 	queue         JobQueue
+	estateRoles   EstateRoleStore
 	lifecycle     *lifecycle
 	plugins       *pluginRegistry
 	events        *eventBus
@@ -47,19 +49,28 @@ func main() {
 		log.Fatal(err)
 	}
 
-	db, err := openDB(cfg)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	defer db.Close()
-
 	logger := log.New(os.Stdout, "[Vein Framework] ", log.Ldate|log.Ltime|log.Lshortfile)
+	models := data.Models{}
+	dbEnabled := false
 
-	app, err := newApplication(cfg, logger, data.NewModels(db))
+	if cfg.db.dsn != "" {
+		db, dbErr := openDB(cfg)
+		if dbErr != nil {
+			logger.Printf("warning: DB unavailable, continuing in challenge mode without DB: %v", dbErr)
+		} else {
+			defer db.Close()
+			models = data.NewModels(db)
+			dbEnabled = true
+		}
+	} else {
+		logger.Printf("warning: DB_DSN not set, continuing in challenge mode without DB")
+	}
+
+	app, err := newApplication(cfg, logger, models)
 	if err != nil {
 		log.Fatal(err)
 	}
+	app.dbEnabled = dbEnabled
 	app.registerDefaults()
 
 	srv := &http.Server{
@@ -153,6 +164,7 @@ func newApplication(cfg config, logger *log.Logger, models data.Models) (*applic
 		idemStore:     infra.idempotency,
 		cache:         infra.cache,
 		queue:         infra.queue,
+		estateRoles:   newMemoryEstateRoleStore(),
 		lifecycle:     newLifecycle(),
 		plugins:       newPluginRegistry(),
 		events:        newEventBus(),
