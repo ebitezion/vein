@@ -8,11 +8,6 @@ import (
 	"github.com/ebitezion/vein/internal/validator"
 )
 
-const (
-	challengeEmail    = "admin@vein.dev"
-	challengePassword = "VeinPass#2026!"
-)
-
 func (app *application) issueToken(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Email    string `json:"email"`
@@ -30,25 +25,6 @@ func (app *application) issueToken(w http.ResponseWriter, r *http.Request) {
 	v.Check(input.Password != "", "password", "must be provided")
 	if !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
-		return
-	}
-
-	if !app.dbEnabled {
-		if strings.ToLower(strings.TrimSpace(input.Email)) != challengeEmail || input.Password != challengePassword {
-			app.unauthorizedResponse(w, r)
-			return
-		}
-
-		token, err := app.generateToken("user-1", "admin", app.config.security.tokenTTL)
-		if err != nil {
-			app.serverErrorResponse(w, r)
-			return
-		}
-		_ = app.writeJSON(w, http.StatusCreated, envelope{"auth": envelope{
-			"token":      token,
-			"expires_in": int(app.config.security.tokenTTL.Seconds()),
-			"role":       "admin",
-		}}, nil)
 		return
 	}
 
@@ -76,11 +52,6 @@ func (app *application) issueToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) listUsers(w http.ResponseWriter, r *http.Request) {
-	if !app.dbEnabled {
-		app.errorResponse(w, r, http.StatusServiceUnavailable, "users endpoint requires DB setup")
-		return
-	}
-
 	qs := r.URL.Query()
 	v := validator.New()
 	filters := data.Filters{

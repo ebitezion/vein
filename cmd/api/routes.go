@@ -24,8 +24,6 @@ func (app *application) routes() http.Handler {
 	routes.HandlerFunc(http.MethodPost, "/v1/auth/token", app.issueToken)
 	routes.Handler(http.MethodGet, "/v1/users", app.authenticate(app.requireRoles("admin", "manager")(http.HandlerFunc(app.listUsers))))
 	routes.Handler(http.MethodPost, "/v1/jobs/audit", app.authenticate(app.requireRoles("admin", "manager")(http.HandlerFunc(app.enqueueAuditJob))))
-	routes.Handler(http.MethodPost, "/v1/gate/open", app.authenticate(app.withActiveEstate(app.requireEstateRole("admin")(http.HandlerFunc(app.openGate)))))
-	routes.Handler(http.MethodPost, "/v1/challenge/downgrade", app.authenticate(app.withActiveEstate(http.HandlerFunc(app.challengeDowngradeRole))))
 
 	return app.chain(routes)
 }

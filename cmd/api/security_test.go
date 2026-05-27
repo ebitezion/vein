@@ -33,7 +33,6 @@ func TestIssueTokenUnauthorizedWithInvalidPassword(t *testing.T) {
 
 	app := newTestApp()
 	app.model = data.NewModels(db)
-	app.dbEnabled = true
 
 	payload, _ := json.Marshal(map[string]string{"email": "admin@vein.dev", "password": "wrong-password"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/auth/token", bytes.NewReader(payload))
@@ -69,7 +68,6 @@ func TestIssueTokenForbiddenForDisabledUser(t *testing.T) {
 
 	app := newTestApp()
 	app.model = data.NewModels(db)
-	app.dbEnabled = true
 
 	payload, _ := json.Marshal(map[string]string{"email": "disabled@vein.dev", "password": password})
 	req := httptest.NewRequest(http.MethodPost, "/v1/auth/token", bytes.NewReader(payload))

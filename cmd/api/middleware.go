@@ -15,8 +15,6 @@ type contextKey string
 const (
 	requestIDContextKey contextKey = "request_id"
 	userRoleContextKey  contextKey = "user_role"
-	userIDContextKey    contextKey = "user_id"
-	estateIDContextKey  contextKey = "estate_id"
 )
 
 func (app *application) chain(next http.Handler) http.Handler {
@@ -206,35 +204,6 @@ func (app *application) requestIDFromContext(ctx context.Context) string {
 		return ""
 	}
 	return requestID
-}
-
-func (app *application) userIDFromContext(ctx context.Context) string {
-	userID, ok := ctx.Value(userIDContextKey).(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(userID)
-}
-
-func (app *application) estateIDFromContext(ctx context.Context) string {
-	estateID, ok := ctx.Value(estateIDContextKey).(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(estateID)
-}
-
-func (app *application) withActiveEstate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		estateID := strings.TrimSpace(r.Header.Get("X-Estate-ID"))
-		if estateID == "" {
-			app.errorResponse(w, r, http.StatusBadRequest, "X-Estate-ID header is required")
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), estateIDContextKey, estateID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
 }
 
 func (app *application) readClientIP(r *http.Request) string {
